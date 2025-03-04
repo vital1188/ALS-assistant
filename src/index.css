@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mobile optimization */
+html, body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: manipulation;
+}
+
+/* Increase tap target sizes for mobile and iPad */
+button, 
+input[type="button"], 
+input[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Improve scrolling on iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Improve text readability for ALS patients */
+body {
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* Make buttons more accessible */
+button {
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Larger text input for easier typing */
+textarea, input {
+  font-size: 1.2rem !important;
+}
+
+/* Suggestion buttons */
+.suggestion-button {
+  @apply bg-indigo-50 text-indigo-700 px-3 py-2 rounded-lg text-base hover:bg-indigo-100 transition-colors;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+/* iPad specific optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  /* Larger text for iPad */
+  body {
+    font-size: 20px;
+  }
+  
+  /* Ensure buttons are large enough for easy tapping */
+  button {
+    min-height: 60px;
+    font-size: 1.2rem;
+  }
+  
+  /* Ensure input fields are large enough */
+  input, textarea {
+    font-size: 1.3rem !important;
+  }
+  
+  /* Larger suggestion buttons on iPad */
+  .suggestion-button {
+    min-height: 50px;
+    font-size: 1.1rem;
+  }
+}
+
+/* Dashboard layout for iPad */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+  main {
+    height: calc(100vh - 60px);
+    padding-bottom: 0.5rem;
+  }
+  
+  .max-h-\[calc\(100vh-400px\)\] {
+    max-height: calc(100vh - 300px);
+  }
+}
+
+/* Dashboard layout for iPad in portrait */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+  main {
+    height: calc(100vh - 60px);
+    padding-bottom: 0.5rem;
+  }
+  
+  .max-h-\[calc\(100vh-400px\)\] {
+    max-height: calc(100vh - 350px);
+  }
+}
+
+/* High contrast mode for better visibility */
+.high-contrast {
+  --bg-color: #000;
+  --text-color: #fff;
+  --primary-color: #ffff00;
+  --secondary-color: #00ffff;
+  
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.high-contrast button {
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  border: 2px solid var(--text-color);
+}
