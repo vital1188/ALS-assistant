@@ -57,6 +57,16 @@ textarea, input {
   min-height: 44px;
 }
 
+/* Hide scrollbars but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
+
 /* iPad specific optimizations */
 @media (min-width: 768px) and (max-width: 1024px) {
   .container {
@@ -126,4 +136,18 @@ textarea, input {
   background-color: var(--primary-color);
   color: var(--bg-color);
   border: 2px solid var(--text-color);
+}
+
+/* Improve button accessibility for ALS patients */
+button {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Ensure text is readable at all sizes */
+@media (max-width: 640px) {
+  .text-lg {
+    font-size: 1.125rem !important;
+  }
 }
