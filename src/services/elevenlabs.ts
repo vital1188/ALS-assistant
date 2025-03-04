@@ -4,7 +4,7 @@ import { VoiceSettings } from "../types";
 class ElevenLabsService {
   private apiKey: string | null = null;
   private voiceSettings: VoiceSettings = {
-    voiceId: "JBFqnCBsd6RMkjVDRZzb", // Default voice ID
+    voiceId: "H7ZtEYgvMq3Y1gCSSZG4", // Default voice ID
     modelId: "eleven_flash_v2_5",
     outputFormat: "mp3_44100_128",
     speed: 1.0,

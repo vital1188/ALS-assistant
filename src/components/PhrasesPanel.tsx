@@ -8,13 +8,15 @@ interface PhrasesPanelProps {
   phrases: Phrase[];
   frequentPhrases: Phrase[];
   onPhraseClick: (phrase: Phrase) => void;
+  isDarkMode?: boolean;
 }
 
 const PhrasesPanel: React.FC<PhrasesPanelProps> = ({ 
   categories, 
   phrases, 
   frequentPhrases,
-  onPhraseClick 
+  onPhraseClick,
+  isDarkMode = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -40,7 +42,7 @@ const PhrasesPanel: React.FC<PhrasesPanelProps> = ({
     : filteredPhrases;
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow h-full">
+    <div className={`${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'} p-4 rounded-lg shadow h-full`}>
       <div className="mb-4">
         <div className="relative">
           <input
@@ -48,9 +50,13 @@ const PhrasesPanel: React.FC<PhrasesPanelProps> = ({
             placeholder="Search phrases..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full p-3 pl-12 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg"
+            className={`w-full p-3 pl-12 ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500' 
+                : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
+            } border-2 rounded-lg focus:outline-none focus:ring-2 text-lg`}
           />
-          <Search className="absolute left-4 top-4 h-6 w-6 text-gray-400" />
+          <Search className={`absolute left-4 top-4 h-6 w-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
         </div>
       </div>
 
@@ -61,7 +67,9 @@ const PhrasesPanel: React.FC<PhrasesPanelProps> = ({
           className={`px-4 py-3 rounded-lg text-lg font-medium ${
             activeCategory === null
               ? 'bg-indigo-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : isDarkMode 
+                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
           All
@@ -71,7 +79,9 @@ const PhrasesPanel: React.FC<PhrasesPanelProps> = ({
           className={`px-4 py-3 rounded-lg text-lg font-medium flex items-center justify-center gap-2 ${
             activeCategory === 'frequent'
               ? 'bg-indigo-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : isDarkMode 
+                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
           <Star className="h-5 w-5" /> Frequent
@@ -83,7 +93,9 @@ const PhrasesPanel: React.FC<PhrasesPanelProps> = ({
             className={`px-4 py-3 rounded-lg text-lg font-medium flex items-center justify-center gap-2 ${
               activeCategory === category.id
                 ? 'bg-indigo-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : isDarkMode 
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
             {React.createElement(getCategoryIcon(category.id), { className: "h-5 w-5" })}
@@ -101,8 +113,12 @@ const PhrasesPanel: React.FC<PhrasesPanelProps> = ({
               onClick={() => onPhraseClick(phrase)}
               className={`px-4 py-3 rounded-lg text-lg text-left min-h-[60px] flex items-center ${
                 frequentPhrases.some(fp => fp.text === phrase.text)
-                  ? 'bg-amber-50 text-amber-800 hover:bg-amber-100'
-                  : 'bg-gray-50 text-gray-800 hover:bg-gray-100'
+                  ? isDarkMode 
+                    ? 'bg-amber-900 text-amber-100 hover:bg-amber-800' 
+                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : isDarkMode 
+                    ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' 
+                    : 'bg-gray-50 text-gray-800 hover:bg-gray-100'
               }`}
             >
               {phrase.text}
@@ -111,7 +127,7 @@ const PhrasesPanel: React.FC<PhrasesPanelProps> = ({
         </div>
         
         {displayPhrases.length === 0 && (
-          <p className="text-gray-500 text-center py-4">No phrases found</p>
+          <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-center py-4`}>No phrases found</p>
         )}
       </div>
     </div>

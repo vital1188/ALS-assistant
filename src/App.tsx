@@ -18,12 +18,17 @@ function App() {
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [usagePatterns, setUsagePatterns] = useState<UsagePattern[]>([]);
   const [frequentPhrases, setFrequentPhrases] = useState<Phrase[]>([]);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [lastSpokenText, setLastSpokenText] = useState<string | null>(null);
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
-    voiceId: "JBFqnCBsd6RMkjVDRZzb", // Default voice ID
+    voiceId: "H7ZtEYgvMq3Y1gCSSZG4", // Default voice ID
     modelId: "eleven_flash_v2_5",
     outputFormat: "mp3_44100_128",
     speed: 1.0,
-    stability: 0.5
+    stability: 0.7
   });
 
   // Load settings and usage data from localStorage on initial render
@@ -33,6 +38,8 @@ function App() {
     const savedVoiceSettings = localStorage.getItem('voiceSettings');
     const savedHistory = localStorage.getItem('messageHistory');
     const savedUsagePatterns = localStorage.getItem('usagePatterns');
+    const savedIsMuted = localStorage.getItem('isMuted');
+    const savedIsDarkMode = localStorage.getItem('isDarkMode');
     
     if (savedElevenlabsApiKey) {
       setElevenlabsApiKey(savedElevenlabsApiKey);
@@ -70,6 +77,18 @@ function App() {
       }
     }
 
+    if (savedIsMuted) {
+      setIsMuted(savedIsMuted === 'true');
+    }
+
+    if (savedIsDarkMode) {
+      const darkMode = savedIsDarkMode === 'true';
+      setIsDarkMode(darkMode);
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+      }
+    }
+
     // Calculate frequent phrases based on usage patterns
     updateFrequentPhrases();
   }, []);
@@ -100,6 +119,20 @@ function App() {
     updateFrequentPhrases();
   }, [usagePatterns]);
 
+  // Save mute and dark mode preferences
+  useEffect(() => {
+    localStorage.setItem('isMuted', isMuted.toString());
+  }, [isMuted]);
+
+  useEffect(() => {
+    localStorage.setItem('isDarkMode', isDarkMode.toString());
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
   // Add meta viewport tag for better mobile experience
   useEffect(() => {
     const metaViewport = document.createElement('meta');
@@ -109,6 +142,68 @@ function App() {
 
     return () => {
       document.head.removeChild(metaViewport);
+    };
+  }, []);
+
+  // Monitor battery status if available
+  useEffect(() => {
+    if ('getBattery' in navigator) {
+      const updateBatteryStatus = (battery: any) => {
+        setBatteryLevel(Math.round(battery.level * 100));
+        
+        battery.addEventListener('levelchange', () => {
+          setBatteryLevel(Math.round(battery.level * 100));
+        });
+      };
+      
+      // @ts-ignore - getBattery is not in the standard navigator type
+      navigator.getBattery().then(updateBatteryStatus);
+    }
+  }, []);
+
+  // Monitor online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Prevent screen from sleeping
+  useEffect(() => {
+    let wakeLock: any = null;
+    
+    const requestWakeLock = async () => {
+      if ('wakeLock' in navigator) {
+        try {
+          // @ts-ignore - wakeLock is not in the standard navigator type
+          wakeLock = await navigator.wakeLock.request('screen');
+        } catch (err) {
+          console.error('Wake Lock error:', err);
+        }
+      }
+    };
+    
+    requestWakeLock();
+    
+    // Re-request wake lock when document becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && wakeLock === null) {
+        requestWakeLock();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLock) wakeLock.release();
     };
   }, []);
 
@@ -164,9 +259,11 @@ function App() {
     if (!text.trim()) return;
     
     try {
-      if (elevenlabsApiKey) {
+      setLastSpokenText(text);
+      
+      if (elevenlabsApiKey && !isMuted) {
         await elevenlabsService.speak(text);
-      } else {
+      } else if (!elevenlabsApiKey) {
         alert("Please enter your ElevenLabs API key in settings to enable text-to-speech.");
       }
       
@@ -183,8 +280,12 @@ function App() {
       setCurrentText('');
       
       // Get new contextual suggestions based on what was just said
-      if (openaiApiKey) {
+      if (openaiApiKey && !isOffline) {
         getContextualSuggestions(text);
+      } else if (!isOffline) {
+        // If offline, use only local suggestions
+        const alsSpecificFollowUps = getALSSpecificFollowUps(text);
+        setSuggestions(alsSpecificFollowUps);
       }
     } catch (error) {
       console.error("Error speaking text:", error);
@@ -216,6 +317,9 @@ function App() {
       setSuggestions(combinedSuggestions);
     } catch (error) {
       console.error("Error getting contextual suggestions:", error);
+      // Fallback to local suggestions if API fails
+      const alsSpecificFollowUps = getALSSpecificFollowUps(text);
+      setSuggestions(alsSpecificFollowUps);
     }
   };
 
@@ -269,39 +373,48 @@ function App() {
   };
 
   const handleRequestCompletion = async () => {
-    if (!currentText.trim() || !openaiApiKey) return;
+    if (!currentText.trim() || (!openaiApiKey && !isOffline)) return;
     
     try {
-      // Get text completion suggestions
-      const completedText = await openaiService.completeText(currentText);
-      
-      // Get additional response suggestions
-      const responseSuggestions = await openaiService.suggestResponses(currentText);
-      
-      // Find patterns where similar text was entered before
-      const similarPatterns = usagePatterns
-        .filter(pattern => 
-          currentText.length > 3 && 
-          pattern.text.toLowerCase().includes(currentText.toLowerCase())
-        )
-        .slice(0, 2)
-        .map(pattern => pattern.text);
-      
-      // Get ALS-specific completions based on partial text
-      const alsSpecificCompletions = getALSSpecificCompletions(currentText);
-      
-      // Combine all suggestions, removing duplicates
-      const allSuggestions = [...new Set([
-        completedText,
-        ...alsSpecificCompletions,
-        ...responseSuggestions.filter(s => s !== completedText),
-        ...similarPatterns
-      ])];
-      
-      // Update suggestions (limit to 5)
-      setSuggestions(allSuggestions.slice(0, 5));
+      if (!isOffline) {
+        // Get text completion suggestions
+        const completedText = await openaiService.completeText(currentText);
+        
+        // Get additional response suggestions
+        const responseSuggestions = await openaiService.suggestResponses(currentText);
+        
+        // Find patterns where similar text was entered before
+        const similarPatterns = usagePatterns
+          .filter(pattern => 
+            currentText.length > 3 && 
+            pattern.text.toLowerCase().includes(currentText.toLowerCase())
+          )
+          .slice(0, 2)
+          .map(pattern => pattern.text);
+        
+        // Get ALS-specific completions based on partial text
+        const alsSpecificCompletions = getALSSpecificCompletions(currentText);
+        
+        // Combine all suggestions, removing duplicates
+        const allSuggestions = [...new Set([
+          completedText,
+          ...alsSpecificCompletions,
+          ...responseSuggestions.filter(s => s !== completedText),
+          ...similarPatterns
+        ])];
+        
+        // Update suggestions (limit to 5)
+        setSuggestions(allSuggestions.slice(0, 5));
+      } else {
+        // Offline mode - use only local suggestions
+        const alsSpecificCompletions = getALSSpecificCompletions(currentText);
+        setSuggestions(alsSpecificCompletions);
+      }
     } catch (error) {
       console.error("Error getting suggestions:", error);
+      // Fallback to local suggestions if API fails
+      const alsSpecificCompletions = getALSSpecificCompletions(currentText);
+      setSuggestions(alsSpecificCompletions);
     }
   };
 
@@ -358,11 +471,38 @@ function App() {
     setHistory([]);
   };
 
+  const handleToggleMute = () => {
+    setIsMuted(!isMuted);
+  };
+
+  const handleToggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
+  const handleRepeatLastPhrase = () => {
+    if (lastSpokenText) {
+      handleSend(lastSpokenText);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <Header onSettingsClick={() => setIsSettingsOpen(true)} />
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-100'} flex flex-col`}>
+      <Header 
+        onSettingsClick={() => setIsSettingsOpen(true)} 
+        onToggleMute={handleToggleMute}
+        isMuted={isMuted}
+        onToggleDarkMode={handleToggleDarkMode}
+        isDarkMode={isDarkMode}
+        batteryLevel={batteryLevel}
+      />
       
-      <main className="flex-grow container mx-auto px-2 sm:px-4 py-2 sm:py-3 max-w-7xl">
+      {isOffline && (
+        <div className="bg-amber-100 text-amber-800 px-4 py-2 text-center">
+          You're offline. Some features may be limited.
+        </div>
+      )}
+      
+      <main className={`flex-grow container mx-auto px-2 sm:px-4 py-2 sm:py-3 max-w-7xl ${isDarkMode ? 'dark:text-white' : ''}`}>
         {/* iPad Dashboard Layout */}
         <div className="flex flex-col h-full">
           {/* Centered Text Input Area */}
@@ -375,6 +515,9 @@ function App() {
               onSuggestionClick={handleSuggestionClick}
               quickPhrases={phrases.filter(p => p.category === "basic").slice(0, 6)}
               onPhraseClick={handlePhraseClick}
+              onRepeatLastPhrase={handleRepeatLastPhrase}
+              lastSpokenText={lastSpokenText}
+              isDarkMode={isDarkMode}
             />
           </div>
           
@@ -386,6 +529,7 @@ function App() {
                 history={history} 
                 onSpeak={handleSend}
                 onClear={handleClearHistory}
+                isDarkMode={isDarkMode}
               />
             </div>
             
@@ -395,7 +539,8 @@ function App() {
                 categories={categories} 
                 phrases={phrases}
                 frequentPhrases={frequentPhrases}
-                onPhraseClick={handlePhraseClick} 
+                onPhraseClick={handlePhraseClick}
+                isDarkMode={isDarkMode}
               />
             </div>
           </div>
@@ -411,6 +556,7 @@ function App() {
         onElevenlabsApiKeyChange={setElevenlabsApiKey}
         openaiApiKey={openaiApiKey}
         onOpenaiApiKeyChange={setOpenaiApiKey}
+        isDarkMode={isDarkMode}
       />
     </div>
   );

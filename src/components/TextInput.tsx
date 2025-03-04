@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, X, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Send, X, RefreshCw, ChevronDown, ChevronUp, Repeat } from 'lucide-react';
 import { Phrase } from '../types';
 
 interface TextInputProps {
@@ -10,6 +10,9 @@ interface TextInputProps {
   onSuggestionClick: (suggestion: string) => void;
   quickPhrases: Phrase[];
   onPhraseClick: (phrase: Phrase) => void;
+  onRepeatLastPhrase?: () => void;
+  lastSpokenText: string | null;
+  isDarkMode?: boolean;
 }
 
 const TextInput: React.FC<TextInputProps> = ({ 
@@ -19,7 +22,10 @@ const TextInput: React.FC<TextInputProps> = ({
   suggestions,
   onSuggestionClick,
   quickPhrases,
-  onPhraseClick
+  onPhraseClick,
+  onRepeatLastPhrase,
+  lastSpokenText,
+  isDarkMode = false
 }) => {
   const [text, setText] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -89,18 +95,31 @@ const TextInput: React.FC<TextInputProps> = ({
   };
 
   return (
-    <div className="w-full bg-white rounded-lg shadow">
+    <div className={`w-full ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'} rounded-lg shadow`}>
       {/* Suggestions Bar - Compact and Collapsible */}
       {suggestions.length > 0 && (
-        <div className="border-b border-gray-200">
+        <div className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           <div className="flex items-center justify-between px-4 py-2">
             <button 
               onClick={toggleSuggestions}
-              className="text-sm font-medium text-gray-600 flex items-center gap-1 hover:text-indigo-600"
+              className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} flex items-center gap-1 hover:text-indigo-600`}
             >
               Suggestions {showSuggestions ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
-            <span className="text-xs text-gray-500">{suggestions.length} available</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{suggestions.length} available</span>
+              {/* Moved refresh button to suggestion section corner */}
+              {text && (
+                <button
+                  onClick={handleCompletionRequest}
+                  className={`p-2 rounded-full ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900' : 'text-indigo-500 hover:text-indigo-700 hover:bg-indigo-100'}`}
+                  aria-label="Refresh suggestions"
+                  title="Refresh suggestions"
+                >
+                  <RefreshCw className="h-5 w-5" />
+                </button>
+              )}
+            </div>
           </div>
           
           {showSuggestions && (
@@ -109,7 +128,11 @@ const TextInput: React.FC<TextInputProps> = ({
                 <button
                   key={index}
                   onClick={() => onSuggestionClick(suggestion)}
-                  className="bg-indigo-50 text-indigo-700 px-3 py-2 rounded-lg text-base hover:bg-indigo-100 transition-colors"
+                  className={`${
+                    isDarkMode 
+                      ? 'bg-indigo-900 text-indigo-100 hover:bg-indigo-800' 
+                      : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                  } px-3 py-2 rounded-lg text-base transition-colors`}
                 >
                   {suggestion}
                 </button>
@@ -128,7 +151,11 @@ const TextInput: React.FC<TextInputProps> = ({
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
-            className="w-full p-4 pr-24 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-xl min-h-[100px] max-h-[150px]"
+            className={`w-full p-4 pr-24 ${
+              isDarkMode 
+                ? 'bg-gray-700 border-indigo-700 text-white placeholder-gray-400 focus:ring-indigo-400' 
+                : 'border-indigo-300 focus:ring-indigo-500'
+            } border-2 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent resize-none text-xl min-h-[100px] max-h-[150px]`}
             rows={3}
           />
           
@@ -136,19 +163,20 @@ const TextInput: React.FC<TextInputProps> = ({
             {text && (
               <button
                 onClick={clearText}
-                className="p-3 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+                className={`p-3 ${isDarkMode ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'} rounded-full`}
                 aria-label="Clear text"
               >
                 <X className="h-6 w-6" />
               </button>
             )}
-            {text && (
+            {onRepeatLastPhrase && lastSpokenText && (
               <button
-                onClick={handleCompletionRequest}
-                className="p-3 text-indigo-500 hover:text-indigo-700 rounded-full hover:bg-indigo-100"
-                aria-label="Get suggestions"
+                onClick={onRepeatLastPhrase}
+                className={`p-3 ${isDarkMode ? 'text-green-400 hover:text-green-300 hover:bg-green-900' : 'text-green-500 hover:text-green-700 hover:bg-green-100'} rounded-full`}
+                aria-label="Repeat last phrase"
+                title="Repeat last phrase"
               >
-                <RefreshCw className="h-6 w-6" />
+                <Repeat className="h-6 w-6" />
               </button>
             )}
             <button
@@ -156,8 +184,12 @@ const TextInput: React.FC<TextInputProps> = ({
               disabled={!text.trim()}
               className={`p-3 rounded-full ${
                 text.trim() 
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
-                  : 'bg-gray-200 text-gray-400'
+                  ? isDarkMode 
+                    ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : isDarkMode
+                    ? 'bg-gray-700 text-gray-500'
+                    : 'bg-gray-200 text-gray-400'
               }`}
               aria-label="Send message"
             >
@@ -168,13 +200,17 @@ const TextInput: React.FC<TextInputProps> = ({
         
         {/* Quick Phrases - Large Buttons */}
         <div>
-          <h2 className="text-lg font-medium mb-2 text-gray-600">Quick Phrases</h2>
+          <h2 className={`text-lg font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Quick Phrases</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {quickPhrases.map(phrase => (
               <button
                 key={phrase.id}
                 onClick={() => onPhraseClick(phrase)}
-                className="bg-indigo-50 text-indigo-700 px-4 py-3 rounded-lg text-lg hover:bg-indigo-100 transition-colors text-center min-h-[70px] flex items-center justify-center"
+                className={`${
+                  isDarkMode 
+                    ? 'bg-indigo-900 text-indigo-100 hover:bg-indigo-800' 
+                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                } px-4 py-3 rounded-lg text-lg transition-colors text-center min-h-[70px] flex items-center justify-center`}
               >
                 {phrase.text}
               </button>
